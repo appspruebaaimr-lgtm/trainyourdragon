@@ -1,0 +1,2660 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width,
+               initial-scale=1.0,
+               maximum-scale=1.0,
+               user-scalable=no">
+
+<title>Manual de dragones</title>
+
+
+<!-- =====================================================
+     FUENTE MEDIEVAL / BLACKLETTER
+     ===================================================== -->
+
+<link rel="preconnect"
+      href="https://fonts.googleapis.com">
+
+<link rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap"
+      rel="stylesheet">
+
+
+<style>
+
+/* =========================================================
+   GENERAL
+   ========================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+
+html,
+body {
+
+    width: 100%;
+    height: 100%;
+
+    overflow: hidden;
+
+    background:
+        #c9aa73;
+
+    touch-action: none;
+}
+
+
+body {
+
+    font-family:
+        Georgia,
+        serif;
+}
+
+
+/* =========================================================
+   CANVAS
+   ========================================================= */
+
+canvas {
+
+    position: fixed;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    touch-action: none;
+}
+
+
+/* =========================================================
+   TÍTULO
+   ========================================================= */
+
+.title {
+
+    position: fixed;
+
+    top: 20px;
+
+    left: 50%;
+
+    transform:
+        translateX(-50%);
+
+    font-family:
+        "UnifrakturMaguntia",
+        "UnifrakturCook",
+        "Old English Text MT",
+        "Lucida Blackletter",
+        Georgia,
+        serif;
+
+    font-size:
+        clamp(
+            35px,
+            8vw,
+            72px
+        );
+
+    line-height: 1;
+
+    color:
+        #25170b;
+
+    letter-spacing:
+        1px;
+
+    white-space:
+        nowrap;
+
+    text-align:
+        center;
+
+    /*
+       Sombra como tinta
+       ligeramente corrida sobre papel.
+    */
+
+    text-shadow:
+        1px 1px 0 rgba(255,245,210,.30),
+        2px 2px 1px rgba(60,35,10,.18),
+        0 2px 5px rgba(50,30,10,.12);
+
+    pointer-events:
+        none;
+
+    user-select:
+        none;
+
+    z-index:
+        10;
+}
+
+
+/* =========================================================
+   PEQUEÑO ADORNO BAJO EL TÍTULO
+   ========================================================= */
+
+.title::after {
+
+    content:
+        "ᛉ ᛟ ᛉ";
+
+    display:
+        block;
+
+    margin-top:
+        5px;
+
+    font-family:
+        Georgia,
+        serif;
+
+    font-size:
+        13px;
+
+    letter-spacing:
+        9px;
+
+    color:
+        #634521;
+
+    opacity:
+        .72;
+}
+
+
+/* =========================================================
+   SUBTÍTULO
+   ========================================================= */
+
+.subtitle {
+
+    position: fixed;
+
+    bottom: 20px;
+
+    left: 50%;
+
+    transform:
+        translateX(-50%);
+
+    font-family:
+        Georgia,
+        serif;
+
+    font-size:
+        12px;
+
+    letter-spacing:
+        4px;
+
+    color:
+        #5c4225;
+
+    text-shadow:
+        0 1px 0 rgba(255,245,210,.4);
+
+    pointer-events:
+        none;
+
+    user-select:
+        none;
+
+    z-index:
+        10;
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<canvas id="canvas"></canvas>
+
+
+<div class="title">
+    Manual de dragones
+</div>
+
+
+<div class="subtitle">
+    MUEVE EL DEDO
+</div>
+
+
+<script>
+
+/* =========================================================
+   CANVAS
+   ========================================================= */
+
+const canvas =
+    document.getElementById("canvas");
+
+const ctx =
+    canvas.getContext("2d");
+
+
+let W;
+let H;
+let DPR;
+
+
+/* =========================================================
+   RESIZE
+   ========================================================= */
+
+function resize() {
+
+    W =
+        window.innerWidth;
+
+    H =
+        window.innerHeight;
+
+
+    DPR =
+        Math.min(
+            window.devicePixelRatio || 1,
+            2
+        );
+
+
+    canvas.width =
+        W * DPR;
+
+    canvas.height =
+        H * DPR;
+
+
+    canvas.style.width =
+        W + "px";
+
+    canvas.style.height =
+        H + "px";
+
+
+    ctx.setTransform(
+        DPR,
+        0,
+        0,
+        DPR,
+        0,
+        0
+    );
+}
+
+
+window.addEventListener(
+    "resize",
+    resize
+);
+
+resize();
+
+
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+
+function lerp(
+    a,
+    b,
+    t
+) {
+
+    return a +
+        (b - a) * t;
+}
+
+
+function clamp(
+    value,
+    min,
+    max
+) {
+
+    return Math.max(
+        min,
+        Math.min(
+            max,
+            value
+        )
+    );
+}
+
+
+function normalizeAngle(
+    angle
+) {
+
+    while (
+        angle > Math.PI
+    ) {
+
+        angle -=
+            Math.PI * 2;
+    }
+
+
+    while (
+        angle < -Math.PI
+    ) {
+
+        angle +=
+            Math.PI * 2;
+    }
+
+
+    return angle;
+}
+
+
+function localPoint(
+    center,
+    angle,
+    x,
+    y
+) {
+
+    return {
+
+        x:
+            center.x +
+            Math.cos(angle) * x -
+            Math.sin(angle) * y,
+
+        y:
+            center.y +
+            Math.sin(angle) * x +
+            Math.cos(angle) * y
+    };
+}
+
+
+/* =========================================================
+   POINTER
+   ========================================================= */
+
+const pointer = {
+
+    x:
+        W / 2,
+
+    y:
+        H / 2,
+
+    targetX:
+        W / 2,
+
+    targetY:
+        H / 2,
+
+    active:
+        false
+};
+
+
+function movePointer(
+    x,
+    y
+) {
+
+    pointer.targetX =
+        x;
+
+    pointer.targetY =
+        y;
+
+    pointer.active =
+        true;
+}
+
+
+/* =========================================================
+   MOUSE
+   ========================================================= */
+
+canvas.addEventListener(
+    "mousemove",
+    function(e) {
+
+        movePointer(
+            e.clientX,
+            e.clientY
+        );
+
+    }
+);
+
+
+/* =========================================================
+   TOUCH
+   ========================================================= */
+
+canvas.addEventListener(
+    "touchstart",
+    function(e) {
+
+        e.preventDefault();
+
+        const touch =
+            e.touches[0];
+
+        movePointer(
+            touch.clientX,
+            touch.clientY
+        );
+
+    },
+    {
+        passive: false
+    }
+);
+
+
+canvas.addEventListener(
+    "touchmove",
+    function(e) {
+
+        e.preventDefault();
+
+        const touch =
+            e.touches[0];
+
+        movePointer(
+            touch.clientX,
+            touch.clientY
+        );
+
+    },
+    {
+        passive: false
+    }
+);
+
+
+canvas.addEventListener(
+    "touchend",
+    function() {
+
+        pointer.active =
+            false;
+
+    }
+);
+
+
+/* =========================================================
+   DRAGÓN
+   ========================================================= */
+
+const dragon = {
+
+    x:
+        W / 2,
+
+    y:
+        H / 2,
+
+    vx:
+        0,
+
+    vy:
+        0,
+
+    angle:
+        -Math.PI / 2,
+
+    angularVelocity:
+        0,
+
+    speed:
+        0
+};
+
+
+/* =========================================================
+   COLUMNA INVISIBLE
+   ========================================================= */
+
+const spine = [];
+
+const SPINE_COUNT =
+    34;
+
+const SPACING =
+    15;
+
+
+for (
+    let i = 0;
+    i < SPINE_COUNT;
+    i++
+) {
+
+    spine.push({
+
+        x:
+            dragon.x,
+
+        y:
+            dragon.y +
+            i * SPACING,
+
+        angle:
+            Math.PI / 2,
+
+        wave:
+            0
+
+    });
+}
+
+
+/* =========================================================
+   TIEMPO
+   ========================================================= */
+
+let animationTime =
+    0;
+
+
+/* =========================================================
+   ACTUALIZAR DRAGÓN
+   ========================================================= */
+
+function updateDragon() {
+
+    const dx =
+        pointer.targetX -
+        dragon.x;
+
+    const dy =
+        pointer.targetY -
+        dragon.y;
+
+
+    const dist =
+        Math.hypot(
+            dx,
+            dy
+        );
+
+
+    const targetAngle =
+        Math.atan2(
+            dy,
+            dx
+        );
+
+
+    const steering =
+        clamp(
+            dist / 180,
+            0,
+            1
+        );
+
+
+    const acceleration =
+        0.42 +
+        steering * 0.5;
+
+
+    dragon.vx +=
+        Math.cos(targetAngle) *
+        acceleration;
+
+
+    dragon.vy +=
+        Math.sin(targetAngle) *
+        acceleration;
+
+
+    dragon.vx *=
+        0.91;
+
+
+    dragon.vy *=
+        0.91;
+
+
+    const maxSpeed =
+        13;
+
+
+    const currentSpeed =
+        Math.hypot(
+            dragon.vx,
+            dragon.vy
+        );
+
+
+    if (
+        currentSpeed >
+        maxSpeed
+    ) {
+
+        const ratio =
+            maxSpeed /
+            currentSpeed;
+
+
+        dragon.vx *=
+            ratio;
+
+
+        dragon.vy *=
+            ratio;
+    }
+
+
+    if (
+        dist < 20
+    ) {
+
+        dragon.vx *=
+            0.88;
+
+        dragon.vy *=
+            0.88;
+    }
+
+
+    dragon.x +=
+        dragon.vx;
+
+    dragon.y +=
+        dragon.vy;
+
+
+    dragon.speed =
+        Math.hypot(
+            dragon.vx,
+            dragon.vy
+        );
+
+
+    if (
+        dragon.speed > 0.2
+    ) {
+
+        const movementAngle =
+            Math.atan2(
+                dragon.vy,
+                dragon.vx
+            );
+
+
+        let turn =
+            normalizeAngle(
+                movementAngle -
+                dragon.angle
+            );
+
+
+        dragon.angularVelocity +=
+            turn * 0.055;
+
+
+        dragon.angularVelocity *=
+            0.82;
+
+
+        dragon.angularVelocity =
+            clamp(
+                dragon.angularVelocity,
+                -0.15,
+                0.15
+            );
+
+
+        dragon.angle +=
+            dragon.angularVelocity;
+    }
+
+
+    const margin =
+        80;
+
+
+    if (
+        dragon.x < margin
+    ) {
+
+        dragon.vx +=
+            0.4;
+    }
+
+
+    if (
+        dragon.x >
+        W - margin
+    ) {
+
+        dragon.vx -=
+            0.4;
+    }
+
+
+    if (
+        dragon.y < margin
+    ) {
+
+        dragon.vy +=
+            0.4;
+    }
+
+
+    if (
+        dragon.y >
+        H - margin
+    ) {
+
+        dragon.vy -=
+            0.4;
+    }
+
+
+    spine[0].x =
+        dragon.x;
+
+    spine[0].y =
+        dragon.y;
+
+    spine[0].angle =
+        dragon.angle;
+
+
+    for (
+        let i = 1;
+        i < spine.length;
+        i++
+    ) {
+
+        const previous =
+            spine[i - 1];
+
+        const current =
+            spine[i];
+
+
+        const dx =
+            previous.x -
+            current.x;
+
+        const dy =
+            previous.y -
+            current.y;
+
+
+        const baseAngle =
+            Math.atan2(
+                dy,
+                dx
+            );
+
+
+        const wave =
+            Math.sin(
+                animationTime *
+                0.015 -
+                i *
+                0.45
+            ) *
+            (
+                0.025 +
+                i /
+                spine.length *
+                0.08
+            );
+
+
+        const finalAngle =
+            baseAngle +
+            wave;
+
+
+        const desiredX =
+            previous.x -
+            Math.cos(finalAngle) *
+            SPACING;
+
+
+        const desiredY =
+            previous.y -
+            Math.sin(finalAngle) *
+            SPACING;
+
+
+        const follow =
+            lerp(
+                0.30,
+                0.12,
+                i /
+                spine.length
+            );
+
+
+        current.x =
+            lerp(
+                current.x,
+                desiredX,
+                follow
+            );
+
+
+        current.y =
+            lerp(
+                current.y,
+                desiredY,
+                follow
+            );
+
+
+        current.angle =
+            finalAngle;
+    }
+}
+
+
+/* =========================================================
+   ALAS
+   ========================================================= */
+
+let wingPhase =
+    0;
+
+
+function drawWing(
+    side
+) {
+
+    const base =
+        spine[4];
+
+
+    const flapSpeed =
+        0.045 +
+        dragon.speed *
+        0.012;
+
+
+    wingPhase +=
+        flapSpeed;
+
+
+    const flap =
+        Math.sin(
+            wingPhase
+        );
+
+
+    const amplitude =
+        3 +
+        dragon.speed *
+        0.8;
+
+
+    ctx.save();
+
+
+    ctx.translate(
+        base.x,
+        base.y
+    );
+
+
+    ctx.rotate(
+        base.angle
+    );
+
+
+    ctx.scale(
+        1,
+        side
+    );
+
+
+    ctx.rotate(
+        flap *
+        amplitude *
+        Math.PI /
+        180
+    );
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        0,
+        0
+    );
+
+
+    ctx.lineTo(
+        -65,
+        -25
+    );
+
+
+    ctx.lineTo(
+        -185,
+        -115
+    );
+
+
+    ctx.quadraticCurveTo(
+        -215,
+        -125,
+        -235,
+        -108
+    );
+
+
+    ctx.quadraticCurveTo(
+        -210,
+        -90,
+        -192,
+        -65
+    );
+
+
+    ctx.quadraticCurveTo(
+        -175,
+        -48,
+        -158,
+        -53
+    );
+
+
+    ctx.quadraticCurveTo(
+        -150,
+        -35,
+        -135,
+        -32
+    );
+
+
+    ctx.quadraticCurveTo(
+        -120,
+        -18,
+        -105,
+        -25
+    );
+
+
+    ctx.quadraticCurveTo(
+        -92,
+        -8,
+        -75,
+        -15
+    );
+
+
+    ctx.lineTo(
+        -30,
+        5
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fillStyle =
+        "#101010";
+
+
+    ctx.fill();
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        -5,
+        0
+    );
+
+
+    ctx.lineTo(
+        -190,
+        -110
+    );
+
+
+    ctx.moveTo(
+        -15,
+        0
+    );
+
+
+    ctx.lineTo(
+        -158,
+        -53
+    );
+
+
+    ctx.moveTo(
+        -23,
+        2
+    );
+
+
+    ctx.lineTo(
+        -135,
+        -32
+    );
+
+
+    ctx.moveTo(
+        -28,
+        3
+    );
+
+
+    ctx.lineTo(
+        -105,
+        -25
+    );
+
+
+    ctx.strokeStyle =
+        "#292929";
+
+
+    ctx.lineWidth =
+        2;
+
+
+    ctx.stroke();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   CUERPO
+   ========================================================= */
+
+function drawBody() {
+
+    ctx.save();
+
+
+    const widths =
+        [];
+
+
+    for (
+        let i = 0;
+        i < 14;
+        i++
+    ) {
+
+        widths.push(
+            23 -
+            i * 0.75
+        );
+    }
+
+
+    ctx.beginPath();
+
+
+    for (
+        let i = 0;
+        i < 14;
+        i++
+    ) {
+
+        const s =
+            spine[i];
+
+
+        const p =
+            localPoint(
+                s,
+                s.angle,
+                0,
+                -widths[i]
+            );
+
+
+        if (
+            i === 0
+        ) {
+
+            ctx.moveTo(
+                p.x,
+                p.y
+            );
+
+        } else {
+
+            ctx.lineTo(
+                p.x,
+                p.y
+            );
+        }
+    }
+
+
+    for (
+        let i = 13;
+        i >= 0;
+        i--
+    ) {
+
+        const s =
+            spine[i];
+
+
+        const p =
+            localPoint(
+                s,
+                s.angle,
+                0,
+                widths[i]
+            );
+
+
+        ctx.lineTo(
+            p.x,
+            p.y
+        );
+    }
+
+
+    ctx.closePath();
+
+
+    ctx.fillStyle =
+        "#101010";
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   COLA
+   ========================================================= */
+
+function drawTail() {
+
+    const start =
+        10;
+
+
+    const end =
+        spine.length -
+        1;
+
+
+    ctx.save();
+
+
+    ctx.beginPath();
+
+
+    for (
+        let i = start;
+        i <= end;
+        i++
+    ) {
+
+        const s =
+            spine[i];
+
+
+        const progress =
+            (i - start) /
+            (end - start);
+
+
+        const width =
+            13 *
+            (1 - progress);
+
+
+        const p =
+            localPoint(
+                s,
+                s.angle,
+                0,
+                -width
+            );
+
+
+        if (
+            i === start
+        ) {
+
+            ctx.moveTo(
+                p.x,
+                p.y
+            );
+
+        } else {
+
+            ctx.lineTo(
+                p.x,
+                p.y
+            );
+        }
+    }
+
+
+    const tip =
+        spine[end];
+
+
+    const tipPoint =
+        localPoint(
+            tip,
+            tip.angle,
+            28,
+            0
+        );
+
+
+    ctx.lineTo(
+        tipPoint.x,
+        tipPoint.y
+    );
+
+
+    for (
+        let i = end;
+        i >= start;
+        i--
+    ) {
+
+        const s =
+            spine[i];
+
+
+        const progress =
+            (i - start) /
+            (end - start);
+
+
+        const width =
+            13 *
+            (1 - progress);
+
+
+        const p =
+            localPoint(
+                s,
+                s.angle,
+                0,
+                width
+            );
+
+
+        ctx.lineTo(
+            p.x,
+            p.y
+        );
+    }
+
+
+    ctx.closePath();
+
+
+    ctx.fillStyle =
+        "#101010";
+
+
+    ctx.fill();
+
+
+    /*
+       Aleta.
+    */
+
+    const base =
+        spine[
+            spine.length - 6
+        ];
+
+
+    ctx.save();
+
+
+    ctx.translate(
+        base.x,
+        base.y
+    );
+
+
+    ctx.rotate(
+        base.angle
+    );
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        0,
+        0
+    );
+
+
+    ctx.quadraticCurveTo(
+        35,
+        -30,
+        68,
+        -40
+    );
+
+
+    ctx.quadraticCurveTo(
+        55,
+        -12,
+        72,
+        0
+    );
+
+
+    ctx.quadraticCurveTo(
+        52,
+        12,
+        68,
+        40
+    );
+
+
+    ctx.quadraticCurveTo(
+        35,
+        30,
+        0,
+        0
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fillStyle =
+        "#111111";
+
+
+    ctx.fill();
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        12,
+        0
+    );
+
+
+    ctx.lineTo(
+        60,
+        -27
+    );
+
+
+    ctx.moveTo(
+        12,
+        0
+    );
+
+
+    ctx.lineTo(
+        60,
+        27
+    );
+
+
+    ctx.strokeStyle =
+        "#292929";
+
+
+    ctx.lineWidth =
+        2;
+
+
+    ctx.stroke();
+
+
+    ctx.restore();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   PATAS
+   ========================================================= */
+
+function drawLeg(
+    index,
+    side
+) {
+
+    const s =
+        spine[index];
+
+
+    ctx.save();
+
+
+    ctx.translate(
+        s.x,
+        s.y
+    );
+
+
+    ctx.rotate(
+        s.angle
+    );
+
+
+    ctx.scale(
+        1,
+        side
+    );
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        -5,
+        3
+    );
+
+
+    ctx.quadraticCurveTo(
+        -7,
+        25,
+        -28,
+        43
+    );
+
+
+    ctx.lineWidth =
+        9;
+
+
+    ctx.strokeStyle =
+        "#111111";
+
+
+    ctx.lineCap =
+        "round";
+
+
+    ctx.stroke();
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        -29,
+        43
+    );
+
+
+    ctx.lineTo(
+        -41,
+        53
+    );
+
+
+    ctx.moveTo(
+        -29,
+        43
+    );
+
+
+    ctx.lineTo(
+        -32,
+        56
+    );
+
+
+    ctx.moveTo(
+        -29,
+        43
+    );
+
+
+    ctx.lineTo(
+        -21,
+        53
+    );
+
+
+    ctx.lineWidth =
+        2.5;
+
+
+    ctx.stroke();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   CABEZA
+   ========================================================= */
+
+function drawHead() {
+
+    const h =
+        spine[0];
+
+
+    ctx.save();
+
+
+    ctx.translate(
+        h.x,
+        h.y
+    );
+
+
+    ctx.rotate(
+        h.angle
+    );
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        40,
+        0
+    );
+
+
+    ctx.quadraticCurveTo(
+        27,
+        -14,
+        8,
+        -16
+    );
+
+
+    ctx.quadraticCurveTo(
+        -13,
+        -27,
+        -30,
+        -11
+    );
+
+
+    ctx.quadraticCurveTo(
+        -38,
+        0,
+        -30,
+        11
+    );
+
+
+    ctx.quadraticCurveTo(
+        -13,
+        27,
+        8,
+        16
+    );
+
+
+    ctx.quadraticCurveTo(
+        27,
+        14,
+        40,
+        0
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fillStyle =
+        "#080808";
+
+
+    ctx.fill();
+
+
+    /*
+       Oreja superior.
+    */
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        -10,
+        -13
+    );
+
+
+    ctx.lineTo(
+        -31,
+        -40
+    );
+
+
+    ctx.lineTo(
+        0,
+        -20
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    /*
+       Oreja inferior.
+    */
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        -10,
+        13
+    );
+
+
+    ctx.lineTo(
+        -31,
+        40
+    );
+
+
+    ctx.lineTo(
+        0,
+        20
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    /*
+       Ojos.
+    */
+
+    const eye =
+        0.75 +
+        Math.sin(
+            performance.now() *
+            0.003
+        ) *
+        0.15;
+
+
+    ctx.beginPath();
+
+
+    ctx.ellipse(
+        9,
+        -8,
+        5,
+        3,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        `rgba(
+            150,
+            190,
+            90,
+            ${eye}
+        )`;
+
+
+    ctx.fill();
+
+
+    ctx.beginPath();
+
+
+    ctx.ellipse(
+        9,
+        8,
+        5,
+        3,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fill();
+
+
+    /*
+       Nariz.
+    */
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+        32,
+        -4,
+        2,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.arc(
+        32,
+        4,
+        2,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        "#303030";
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   DRAGÓN COMPLETO
+   ========================================================= */
+
+function drawDragon() {
+
+    drawWing(-1);
+
+    drawWing(1);
+
+
+    drawTail();
+
+
+    drawLeg(
+        5,
+        -1
+    );
+
+
+    drawLeg(
+        5,
+        1
+    );
+
+
+    drawLeg(
+        8,
+        -1
+    );
+
+
+    drawLeg(
+        8,
+        1
+    );
+
+
+    drawBody();
+
+
+    drawHead();
+}
+
+
+/* =========================================================
+   GENERADOR DE RUIDO
+   ========================================================= */
+
+function randomRange(
+    min,
+    max
+) {
+
+    return Math.random() *
+        (max - min) +
+        min;
+}
+
+
+/* =========================================================
+   FONDO DE PERGAMINO
+   ========================================================= */
+
+function drawBackground() {
+
+    /*
+       -----------------------------------------------------
+       COLOR BASE
+       -----------------------------------------------------
+    */
+
+    ctx.fillStyle =
+        "#c9aa73";
+
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    /*
+       -----------------------------------------------------
+       VARIACIÓN CENTRAL DEL PERGAMINO
+       -----------------------------------------------------
+    */
+
+    const centerGlow =
+        ctx.createRadialGradient(
+            W * 0.5,
+            H * 0.47,
+            0,
+            W * 0.5,
+            H * 0.47,
+            Math.max(W, H) * 0.72
+        );
+
+
+    centerGlow.addColorStop(
+        0,
+        "rgba(255,245,210,0.55)"
+    );
+
+
+    centerGlow.addColorStop(
+        0.35,
+        "rgba(239,216,169,0.30)"
+    );
+
+
+    centerGlow.addColorStop(
+        0.70,
+        "rgba(185,145,88,0.12)"
+    );
+
+
+    centerGlow.addColorStop(
+        1,
+        "rgba(95,55,20,0.22)"
+    );
+
+
+    ctx.fillStyle =
+        centerGlow;
+
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    /*
+       -----------------------------------------------------
+       GRANDES MANCHAS DE HUMEDAD
+       -----------------------------------------------------
+    */
+
+    const stains = [
+
+        [
+            W * 0.08,
+            H * 0.18,
+            150,
+            0.15
+        ],
+
+        [
+            W * 0.91,
+            H * 0.12,
+            190,
+            0.13
+        ],
+
+        [
+            W * 0.15,
+            H * 0.82,
+            210,
+            0.14
+        ],
+
+        [
+            W * 0.84,
+            H * 0.76,
+            180,
+            0.14
+        ],
+
+        [
+            W * 0.50,
+            H * 0.32,
+            130,
+            0.06
+        ],
+
+        [
+            W * 0.42,
+            H * 0.86,
+            150,
+            0.07
+        ]
+
+    ];
+
+
+    stains.forEach(
+        stain => {
+
+            const x =
+                stain[0];
+
+            const y =
+                stain[1];
+
+            const radius =
+                stain[2];
+
+            const opacity =
+                stain[3];
+
+
+            const stainGradient =
+                ctx.createRadialGradient(
+                    x,
+                    y,
+                    0,
+                    x,
+                    y,
+                    radius
+                );
+
+
+            stainGradient.addColorStop(
+                0,
+                `rgba(
+                    88,
+                    53,
+                    20,
+                    ${opacity}
+                )`
+            );
+
+
+            stainGradient.addColorStop(
+                0.55,
+                `rgba(
+                    110,
+                    70,
+                    28,
+                    ${opacity * 0.55}
+                )`
+            );
+
+
+            stainGradient.addColorStop(
+                1,
+                "rgba(80,45,15,0)"
+            );
+
+
+            ctx.fillStyle =
+                stainGradient;
+
+
+            ctx.beginPath();
+
+
+            ctx.arc(
+                x,
+                y,
+                radius,
+                0,
+                Math.PI * 2
+            );
+
+
+            ctx.fill();
+        }
+    );
+
+
+    /*
+       -----------------------------------------------------
+       PEQUEÑAS MANCHAS IRREGULARES
+       -----------------------------------------------------
+    */
+
+    /*
+       Se generan de forma determinista
+       para evitar que el papel cambie
+       completamente en cada frame.
+    */
+
+    if (
+        !window.parchmentSpots
+    ) {
+
+        window.parchmentSpots =
+            [];
+
+
+        const count =
+            Math.floor(
+                W * H / 9000
+            );
+
+
+        for (
+            let i = 0;
+            i < count;
+            i++
+        ) {
+
+            window.parchmentSpots.push({
+
+                x:
+                    Math.random() * W,
+
+                y:
+                    Math.random() * H,
+
+                radius:
+                    randomRange(
+                        2,
+                        13
+                    ),
+
+                opacity:
+                    randomRange(
+                        0.025,
+                        0.10
+                    )
+
+            });
+        }
+    }
+
+
+    window.parchmentSpots.forEach(
+        spot => {
+
+            const g =
+                ctx.createRadialGradient(
+                    spot.x,
+                    spot.y,
+                    0,
+                    spot.x,
+                    spot.y,
+                    spot.radius
+                );
+
+
+            g.addColorStop(
+                0,
+                `rgba(
+                    72,
+                    43,
+                    16,
+                    ${spot.opacity}
+                )`
+            );
+
+
+            g.addColorStop(
+                1,
+                "rgba(72,43,16,0)"
+            );
+
+
+            ctx.fillStyle =
+                g;
+
+
+            ctx.beginPath();
+
+
+            ctx.arc(
+                spot.x,
+                spot.y,
+                spot.radius,
+                0,
+                Math.PI * 2
+            );
+
+
+            ctx.fill();
+        }
+    );
+
+
+    /*
+       -----------------------------------------------------
+       FIBRAS DEL PAPEL
+       -----------------------------------------------------
+    */
+
+    if (
+        !window.parchmentFibers
+    ) {
+
+        window.parchmentFibers =
+            [];
+
+
+        const fiberCount =
+            Math.floor(
+                W * H / 12000
+            );
+
+
+        for (
+            let i = 0;
+            i < fiberCount;
+            i++
+        ) {
+
+            window.parchmentFibers.push({
+
+                x:
+                    Math.random() * W,
+
+                y:
+                    Math.random() * H,
+
+                length:
+                    randomRange(
+                        20,
+                        100
+                    ),
+
+                angle:
+                    randomRange(
+                        -0.4,
+                        0.4
+                    )
+
+            });
+        }
+    }
+
+
+    ctx.save();
+
+
+    ctx.globalAlpha =
+        0.10;
+
+
+    ctx.strokeStyle =
+        "#765331";
+
+
+    ctx.lineWidth =
+        0.45;
+
+
+    window.parchmentFibers.forEach(
+        fiber => {
+
+            const x2 =
+                fiber.x +
+                Math.cos(
+                    fiber.angle
+                ) *
+                fiber.length;
+
+
+            const y2 =
+                fiber.y +
+                Math.sin(
+                    fiber.angle
+                ) *
+                fiber.length;
+
+
+            ctx.beginPath();
+
+
+            ctx.moveTo(
+                fiber.x,
+                fiber.y
+            );
+
+
+            ctx.lineTo(
+                x2,
+                y2
+            );
+
+
+            ctx.stroke();
+        }
+    );
+
+
+    ctx.restore();
+
+
+    /*
+       -----------------------------------------------------
+       GRANO FINO
+       -----------------------------------------------------
+    */
+
+    if (
+        !window.parchmentGrain
+    ) {
+
+        window.parchmentGrain =
+            [];
+
+
+        const grainCount =
+            Math.floor(
+                W * H / 250
+            );
+
+
+        for (
+            let i = 0;
+            i < grainCount;
+            i++
+        ) {
+
+            window.parchmentGrain.push({
+
+                x:
+                    Math.random() * W,
+
+                y:
+                    Math.random() * H,
+
+                size:
+                    randomRange(
+                        0.2,
+                        1.2
+                    ),
+
+                dark:
+                    Math.random() >
+                    0.55
+
+            });
+        }
+    }
+
+
+    window.parchmentGrain.forEach(
+        grain => {
+
+            ctx.fillStyle =
+                grain.dark
+                ?
+                "rgba(55,35,15,0.055)"
+                :
+                "rgba(255,245,210,0.045)";
+
+
+            ctx.fillRect(
+                grain.x,
+                grain.y,
+                grain.size,
+                grain.size
+            );
+        }
+    );
+
+
+    /*
+       -----------------------------------------------------
+       BORDES ENVEJECIDOS
+       -----------------------------------------------------
+    */
+
+    const edge =
+        ctx.createRadialGradient(
+            W / 2,
+            H / 2,
+            Math.min(W, H) * 0.30,
+            W / 2,
+            H / 2,
+            Math.max(W, H) * 0.78
+        );
+
+
+    edge.addColorStop(
+        0,
+        "rgba(50,25,5,0)"
+    );
+
+
+    edge.addColorStop(
+        0.65,
+        "rgba(65,35,10,0.015)"
+    );
+
+
+    edge.addColorStop(
+        0.82,
+        "rgba(70,38,12,0.10)"
+    );
+
+
+    edge.addColorStop(
+        0.94,
+        "rgba(55,28,7,0.28)"
+    );
+
+
+    edge.addColorStop(
+        1,
+        "rgba(40,20,5,0.48)"
+    );
+
+
+    ctx.fillStyle =
+        edge;
+
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    /*
+       -----------------------------------------------------
+       BORDES IRREGULARES / QUEMADOS
+       -----------------------------------------------------
+    */
+
+    ctx.save();
+
+
+    ctx.globalAlpha =
+        0.18;
+
+
+    ctx.fillStyle =
+        "#56300e";
+
+
+    /*
+       Superior
+    */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        0,
+        0
+    );
+
+
+    for (
+        let x = 0;
+        x <= W;
+        x += 18
+    ) {
+
+        const y =
+            2 +
+            Math.sin(
+                x * 0.035
+            ) *
+            2;
+
+
+        ctx.lineTo(
+            x,
+            y
+        );
+    }
+
+
+    ctx.lineTo(
+        W,
+        0
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    /*
+       Inferior
+    */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        0,
+        H
+    );
+
+
+    for (
+        let x = 0;
+        x <= W;
+        x += 18
+    ) {
+
+        const y =
+            H -
+            2 -
+            Math.sin(
+                x * 0.035
+            ) *
+            2;
+
+
+        ctx.lineTo(
+            x,
+            y
+        );
+    }
+
+
+    ctx.lineTo(
+        W,
+        H
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    /*
+       Izquierda.
+    */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        0,
+        0
+    );
+
+
+    for (
+        let y = 0;
+        y <= H;
+        y += 18
+    ) {
+
+        const x =
+            2 +
+            Math.sin(
+                y * 0.035
+            ) *
+            2;
+
+
+        ctx.lineTo(
+            x,
+            y
+        );
+    }
+
+
+    ctx.lineTo(
+        0,
+        H
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    /*
+       Derecha.
+    */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        W,
+        0
+    );
+
+
+    for (
+        let y = 0;
+        y <= H;
+        y += 18
+    ) {
+
+        const x =
+            W -
+            2 -
+            Math.sin(
+                y * 0.035
+            ) *
+            2;
+
+
+        ctx.lineTo(
+            x,
+            y
+        );
+    }
+
+
+    ctx.lineTo(
+        W,
+        H
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+}
+
+
+/* =========================================================
+   ANIMACIÓN
+   ========================================================= */
+
+function animate() {
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    animationTime++;
+
+
+    updateDragon();
+
+
+    drawBackground();
+
+
+    drawDragon();
+}
+
+
+animate();
+
+</script>
+
+</body>
+
+</html>
